@@ -32,6 +32,8 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
+import static org.springframework.security.config.Customizer.withDefaults;
+
 @SuppressWarnings({"unused"})
 @RequiredArgsConstructor
 @Configuration
@@ -41,14 +43,6 @@ public class SecurityConfig {
 
     private final RsaKeyProperties rsaKeys;
 
-
-    @Bean
-    public AuthenticationManager authenticationManager(UserDetailsService userDetailsService){
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService);
-        return new ProviderManager(authProvider);
-
-    }
 
     @Bean
     public UserDetailsService userDetailsService(){
@@ -62,7 +56,6 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests()
-                .requestMatchers(new AntPathRequestMatcher("/auth/token")).permitAll()
                 .anyRequest().authenticated().and()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
                 .oauth2ResourceServer(OAuth2ResourceServerConfigurer::jwt)
@@ -70,6 +63,23 @@ public class SecurityConfig {
                 .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
                 .accessDeniedHandler(new BearerTokenAccessDeniedHandler())
                 .and().build();
+    }
+
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    @Bean
+    SecurityFilterChain tokenSecurityFilterChain(HttpSecurity http) throws Exception {
+        return http
+                .securityMatcher(new AntPathRequestMatcher("/auth/token"))
+                .authorizeHttpRequests()
+                .anyRequest().authenticated().and()
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(AbstractHttpConfigurer::disable)
+                .exceptionHandling()
+                .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
+                .accessDeniedHandler(new BearerTokenAccessDeniedHandler())
+                .and()
+                .httpBasic(withDefaults())
+                .build();
     }
 
     @Bean
